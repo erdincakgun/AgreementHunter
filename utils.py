@@ -56,10 +56,10 @@ def transcribe_and_extract_agreement_price(input_file):
 
     date = extract_datetime_microseconds(input_file.split('/')[1])
 
-    record_id = add_record(
+    _ = add_record(
         date, input_file, transcript["text"], aggreement_price)
 
-    print(f"Record added with ID {record_id}")
+    return aggreement_price, transcript["text"]
 
 
 def allowed_file(filename):

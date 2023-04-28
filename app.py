@@ -1,10 +1,13 @@
 from flask import Flask,  render_template, send_from_directory, jsonify, request
 from utils import allowed_file, transcribe_and_extract_agreement_price
-from werkzeug.utils import secure_filename
 from config import PORT, UPLOAD_FOLDER, APP_KEY
+from werkzeug.datastructures import FileStorage
+from werkzeug.utils import secure_filename
+from urllib.parse import urlparse
 from datetime import datetime
 from flask_cors import CORS
 from pathlib import Path
+import requests
 import sqlite3
 import os
 
@@ -45,25 +48,44 @@ def records():
             result.append({'id': row[0], 'date': row[1], 'record_file': row[2],
                            'transcript': row[3], 'aggreement_price': row[4]})
         return jsonify(result)
+
     except Exception as e:
         return jsonify(message='Error fetching records', error=str(e)), 500
+
     finally:
         if conn:
             conn.close()
 
 
 @app.route('/upload', methods=['POST'])
-def upload_file():
-
+def upload():
     if request.method == 'POST':
 
-        if 'file' not in request.files:
-            return jsonify(message='No file part'), 400
+        if 'file' not in request.files and 'url' not in request.form:
+            return jsonify(message='No file or URL provided'), 400
 
-        file = request.files['file']
+        if 'file' in request.files:
+            file = request.files['file']
 
-        if file.filename == '':
-            return jsonify(message='No file selected'), 400
+            if file.filename == '':
+                return jsonify(message='No file selected'), 400
+
+        elif 'url' in request.form:
+            file_url = request.form['url']
+            parsed_url = urlparse(file_url)
+
+            if not parsed_url.scheme or not parsed_url.netloc:
+                return jsonify(message='Invalid URL'), 400
+
+            try:
+                response = requests.get(file_url, stream=True)
+                response.raise_for_status()
+            except requests.exceptions.RequestException as e:
+                return jsonify(message='Error downloading file from URL',
+                               error=str(e)), 500
+
+            file = FileStorage(stream=response.raw,
+                               filename=parsed_url.path.split('/')[-1])
 
         if file and allowed_file(file.filename):
 
@@ -74,10 +96,12 @@ def upload_file():
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], new_filename))
 
             try:
-                transcribe_and_extract_agreement_price(os.path.join(
+
+                price, transcript = transcribe_and_extract_agreement_price(os.path.join(
                     app.config['UPLOAD_FOLDER'], new_filename))
-                return jsonify(message='File uploaded and \
-                           processed successfully'), 200
+
+                return jsonify(price=price, transcript=transcript), 200
+
             except Exception as e:
                 return jsonify(message='Error processing audio file',
                                error=str(e)), 500
@@ -87,4 +111,4 @@ def upload_file():
 
 
 if __name__ == '__main__':
-    app.run(debug=True, port=PORT)
+    app.run(debug=True, host='0.0.0.0', port=PORT)
