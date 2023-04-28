@@ -8,8 +8,8 @@ from pathlib import Path
 import sqlite3
 import os
 
-if not os.path.exists("upload"):
-    os.makedirs("upload")
+if not os.path.exists("uploads"):
+    os.makedirs("uploads")
 
 app = Flask(__name__)
 app.secret_key = APP_KEY
