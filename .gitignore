@@ -4,3 +4,4 @@ uploads
 config.py
 *.db
 .DS*
+token.txt
