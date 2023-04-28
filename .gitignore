@@ -1,0 +1,6 @@
+venv
+__*
+uploads
+config.py
+*.db
+.DS*
